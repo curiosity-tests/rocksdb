@@ -1,10 +1,34 @@
 name: facebook/rocksdb/pr-jobs
-on: [push, pull_request]
-permissions: {}
+on:
+  workflow_dispatch:
+    inputs:
+      leg:
+        description: "baseline (uninstrumented) or instrumented (under chalk/curiosity)"
+        type: choice
+        options: [instrumented, baseline]
+        default: instrumented
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
+      racecar_run:
+        description: "racecar correlation token, echoed into the run name"
+        type: string
+        default: ""
+  push:
+  pull_request:
+permissions:
+  contents: read
+  id-token: write
 env:
+  # The one variable that separates the arms: on baseline, action-checkout
+  # skips its Set up Chalk step entirely.
+  CHALK_ON: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
   # Set to a job name to run only that job (on any repo), or leave empty for
   # normal behavior (all jobs on facebook repo only).
   ONLY_JOB: ''
+run-name: "facebook/rocksdb/pr-jobs ${{ inputs.leg || 'push' }} ${{ inputs.racecar_run }}"
+
 jobs:
   config:
     runs-on: ubuntu-latest
@@ -49,10 +73,21 @@ jobs:
     needs: config
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
       with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
         fetch-depth: 0 # Need full checkout to determine merge base
         fetch-tags: true
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/setup-upstream"
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -94,7 +129,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -112,7 +171,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:24.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -137,7 +220,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/cache-getdeps-downloads"
     - uses: "./.github/actions/setup-folly"
@@ -162,7 +269,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/cache-getdeps-downloads"
     - uses: "./.github/actions/setup-folly"
@@ -182,7 +313,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/cache-getdeps-downloads"
     - uses: "./.github/actions/setup-folly"
@@ -211,7 +366,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -234,7 +413,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -254,7 +457,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/setup-ccache"
       with:
         cache-key-prefix: release
@@ -286,7 +513,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -308,7 +559,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:24.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -375,7 +650,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:24.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -396,7 +695,31 @@ jobs:
       image: gcc:latest
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - run: apt-get update -y && apt-get install -y libgflags-dev
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -424,7 +747,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb --ulimit nofile=1048576:1048576
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/cache-getdeps-downloads"
     - uses: "./.github/actions/setup-folly"
@@ -459,7 +806,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:24.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -486,7 +857,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:24.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -509,7 +904,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -519,94 +938,6 @@ jobs:
       if: always()
     - uses: "./.github/actions/post-steps"
   # ========================= MacOS build only ======================== #
-  build-macos:
-    if: needs.config.outputs.only_job == 'build-macos' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
-    needs: config
-    runs-on: macos-15-xlarge
-    env:
-      ROCKSDB_DISABLE_JEMALLOC: 1
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
-      with:
-        xcode-version: 16.4.0
-    - uses: "./.github/actions/setup-ccache"
-      with:
-        cache-key-prefix: macos
-    - uses: "./.github/actions/increase-max-open-files-on-macos"
-    - uses: "./.github/actions/install-gflags-on-macos"
-    - uses: "./.github/actions/pre-steps-macos"
-    - name: Build
-      run: ulimit -S -n `ulimit -H -n` && make V=1 J=16 -j8 all
-    - uses: "./.github/actions/teardown-ccache"
-      if: always()
-    - uses: "./.github/actions/post-steps"
-  # ========================= MacOS with Tests ======================== #
-  build-macos-cmake:
-    if: needs.config.outputs.only_job == 'build-macos-cmake' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
-    needs: config
-    runs-on: macos-15-xlarge
-    strategy:
-      matrix:
-        run_sharded_tests: [0, 1, 2, 3]
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
-      with:
-        xcode-version: 16.4.0
-    - uses: "./.github/actions/setup-ccache"
-      with:
-        cache-key-prefix: macos-cmake
-    - uses: "./.github/actions/increase-max-open-files-on-macos"
-    - uses: "./.github/actions/install-gflags-on-macos"
-    - uses: "./.github/actions/pre-steps-macos"
-    - name: cmake generate project file
-      run: ulimit -S -n `ulimit -H -n` && mkdir build && cd build && cmake -DWITH_GFLAGS=1 ..
-    - name: Build tests
-      run: cd build && make VERBOSE=1 -j8
-    - name: Run shard 0 out of 4 test shards
-      run: ulimit -S -n `ulimit -H -n` && cd build && ctest -j8 -I 0,,4
-      if: ${{ matrix.run_sharded_tests == 0 }}
-    - name: Run shard 1 out of 4 test shards
-      run: ulimit -S -n `ulimit -H -n` && cd build && ctest -j8 -I 1,,4
-      if: ${{ matrix.run_sharded_tests == 1 }}
-    - name: Run shard 2 out of 4 test shards
-      run: ulimit -S -n `ulimit -H -n` && cd build && ctest -j8 -I 2,,4
-      if: ${{ matrix.run_sharded_tests == 2 }}
-    - name: Run shard 3 out of 4 test shards
-      run: ulimit -S -n `ulimit -H -n` && cd build && ctest -j8 -I 3,,4
-      if: ${{ matrix.run_sharded_tests == 3 }}
-    - uses: "./.github/actions/teardown-ccache"
-      if: always()
-    - uses: "./.github/actions/post-steps"
-  # ======================== Windows with Tests ======================= #
-  # NOTE: some windows jobs are in "nightly" to save resources
-  build-windows-msvc:
-    if: needs.config.outputs.only_job == 'build-windows-msvc' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
-    needs: config
-    runs-on: windows-8-core
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-        - test_shard: db_test
-          suite_run: db_test
-          run_java: "false"
-        - test_shard: other
-          suite_run: arena_test,db_basic_test,db_etc2_test,db_merge_operand_test,bloom_test,c_test,coding_test,crc32c_test,dynamic_bloom_test,env_basic_test,env_test,hash_test,random_test
-          run_java: "false"
-        - test_shard: java
-          suite_run: ""
-          run_java: "true"
-    env:
-      CMAKE_PORTABLE: 1
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: "./.github/actions/windows-build-steps"
-      with:
-        suite-run: ${{ matrix.suite_run }}
-        run-java: ${{ matrix.run_java }}
-  # ============================ Java Jobs ============================ #
   build-linux-java:
     if: needs.config.outputs.only_job == 'build-linux-java' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
     needs: config
@@ -616,7 +947,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -639,7 +994,31 @@ jobs:
       image: ghcr.io/facebook/rocksdb_ubuntu:22.1
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/pre-steps"
     - uses: "./.github/actions/setup-ccache"
       with:
@@ -653,86 +1032,6 @@ jobs:
       run: make V=1 J=8 -j8 rocksdbjavastatic
     - uses: "./.github/actions/teardown-ccache"
       if: always()
-  build-macos-java:
-    if: needs.config.outputs.only_job == 'build-macos-java' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
-    needs: config
-    runs-on: macos-15-xlarge
-    env:
-      ROCKSDB_DISABLE_JEMALLOC: 1
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
-      with:
-        xcode-version: 16.4.0
-    - uses: "./.github/actions/setup-ccache"
-      with:
-        cache-key-prefix: macos-java
-    - uses: "./.github/actions/increase-max-open-files-on-macos"
-    - uses: "./.github/actions/install-gflags-on-macos"
-    - uses: "./.github/actions/setup-jdk-on-macos"
-    - uses: "./.github/actions/pre-steps-macos"
-    - name: Set Java Environment
-      run: |-
-        echo "JAVA_HOME=${JAVA_HOME}"
-        which java && java -version
-        which javac && javac -version
-    - name: Test RocksDBJava
-      run: make V=1 J=16 -j16 jtest
-    - uses: "./.github/actions/teardown-ccache"
-      if: always()
-    - uses: "./.github/actions/post-steps"
-  build-macos-java-static:
-    if: needs.config.outputs.only_job == 'build-macos-java-static' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
-    needs: config
-    runs-on: macos-15-xlarge
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
-      with:
-        xcode-version: 16.4.0
-    - uses: "./.github/actions/setup-ccache"
-      with:
-        cache-key-prefix: macos-java-static
-    - uses: "./.github/actions/increase-max-open-files-on-macos"
-    - uses: "./.github/actions/install-gflags-on-macos"
-    - uses: "./.github/actions/setup-jdk-on-macos"
-    - uses: "./.github/actions/pre-steps-macos"
-    - name: Set Java Environment
-      run: |-
-        echo "JAVA_HOME=${JAVA_HOME}"
-        which java && java -version
-        which javac && javac -version
-    - name: Build RocksDBJava x86 and ARM Static Libraries
-      run: make V=1 J=16 -j16 rocksdbjavastaticosx
-    - uses: "./.github/actions/teardown-ccache"
-      if: always()
-    - uses: "./.github/actions/post-steps"
-  build-macos-java-static-universal:
-    if: needs.config.outputs.only_job == 'build-macos-java-static-universal' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
-    needs: config
-    runs-on: macos-15-xlarge
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
-      with:
-        xcode-version: 16.4.0
-    - uses: "./.github/actions/setup-ccache"
-      with:
-        cache-key-prefix: macos-java-static-universal
-    - uses: "./.github/actions/increase-max-open-files-on-macos"
-    - uses: "./.github/actions/install-gflags-on-macos"
-    - uses: "./.github/actions/setup-jdk-on-macos"
-    - uses: "./.github/actions/pre-steps-macos"
-    - name: Set Java Environment
-      run: |-
-        echo "JAVA_HOME=${JAVA_HOME}"
-        which java && java -version
-        which javac && javac -version
-    - name: Build RocksDBJava Universal Binary Static Library
-      run: make V=1 J=16 -j16 rocksdbjavastaticosx_ub
-    - uses: "./.github/actions/teardown-ccache"
-      if: always()
-    - uses: "./.github/actions/post-steps"
   build-linux-java-pmd:
     if: needs.config.outputs.only_job == 'build-linux-java-pmd' || (needs.config.outputs.only_job == '' && github.repository_owner == 'facebook')
     needs: config
@@ -742,7 +1041,31 @@ jobs:
       image: evolvedbinary/rocksjava:alpine3_x64-be
       options: --shm-size=16gb
     steps:
-    - uses: actions/checkout@v4.1.0
+    - name: Install curl/bash for action-checkout (racecar; ungated, both arms)
+      shell: sh
+      run: |
+        command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && exit 0
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates bash
+        elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates bash
+        elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates bash
+        elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates bash
+        elif command -v zypper >/dev/null 2>&1; then zypper -n install curl ca-certificates bash
+        fi
+
+    - name: Checkout code
+      uses: crashappsec/action-checkout@main
+      with:
+        chalk: ${{ env.CHALK_ON }}
+        profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+        observables_continue_on_error: false
+        lfs: false
+    - name: Assert instrumentation is live
+      if: env.CHALK_ON == 'true'
+      run: |
+        test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+        test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
     - uses: "./.github/actions/install-maven"
     - uses: "./.github/actions/pre-steps"
     - name: Set Java Environment
@@ -766,7 +1089,19 @@ jobs:
     runs-on:
       labels: 4-core-ubuntu-arm
     steps:
-      - uses: actions/checkout@v4.1.0
+      - name: Checkout code
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          observables_continue_on_error: false
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+          test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
       - uses: "./.github/actions/pre-steps"
       - run: sudo apt-get update && sudo apt-get install -y build-essential ccache
       - uses: "./.github/actions/setup-ccache"
