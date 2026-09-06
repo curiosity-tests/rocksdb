@@ -23,7 +23,7 @@ permissions:
 env:
   # The one variable that separates the arms: on baseline, action-checkout
   # skips its Set up Chalk step entirely.
-  CHALK_ON: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+  CHALK_ON: ${{ inputs.leg == 'instrumented' }}
   # Set to a job name to run only that job (on any repo), or leave empty for
   # normal behavior (all jobs on facebook repo only).
   ONLY_JOB: ''
